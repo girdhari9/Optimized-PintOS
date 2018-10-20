@@ -32,6 +32,10 @@ extern test_func test_mlfqs_fair_20;
 extern test_func test_mlfqs_nice_2;
 extern test_func test_mlfqs_nice_10;
 extern test_func test_mlfqs_block;
+// @author:Girdhari
+// extern test_func hello_world;
+extern test_func helloWorld;
+// End
 
 void msg (const char *, ...);
 void fail (const char *, ...);
