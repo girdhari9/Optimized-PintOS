@@ -4,6 +4,9 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+/* author: @Giridhari Lal Gupta*/
+#include "threads/synch.h"
+
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -93,10 +96,16 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-#ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-#endif
+    /*author: @Giridhari Lal Gupta*/
+    struct semaphore sema_timer;
+    struct list_elem timer_elem;        /* List element for timer_wait_list. */
+    int64_t wakeup_time;                /* Thread wakeup time in ticks. */
+
+
+    #ifdef USERPROG
+      /* Owned by userprog/process.c. */
+      uint32_t *pagedir;                  /* Page directory. */
+    #endif
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -109,7 +118,7 @@ extern bool thread_mlfqs;
 void thread_init (void);
 void thread_start (void);
 
-void thread_tick (void);
+void thread_tick (int64_t);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
@@ -136,5 +145,16 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* author: @Giridhari Lal Gupta */
+void thread_timer_sleep(int64_t , int64_t );
+void thread_wakeup(int64_t);
+
+bool less_wakeup (const struct list_elem *left,
+ const struct list_elem *right, void *aux UNUSED);
+
+/* Comparison function that prefers the threas with higher priority. */
+bool more_prio (const struct list_elem *left,
+ const struct list_elem *right, void *aux UNUSED);
 
 #endif /* threads/thread.h */

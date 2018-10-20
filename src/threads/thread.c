@@ -24,6 +24,11 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/*author: @Giridhari Lal Gupta*/
+/* Process's List in THREAD_BLOCKED state. */
+static struct list timer_wait_list;
+
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -91,6 +96,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&timer_wait_list);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -117,23 +123,61 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+ /*author: @Giridhari Lal Gupta*/
+void
+thread_timer_sleep(int64_t start, int64_t ticks){
+
+  struct thread *_Thread = thread_current ();
+
+  if(ticks <= 0) return; 
+
+  _Thread->wakeup_time = start + ticks;
+
+  enum intr_level old_level = intr_disable();
+  ASSERT (!intr_context());
+    
+  list_insert_ordered(&timer_wait_list, &_Thread->timer_elem, less_wakeup, NULL);
+  /*Thread will block itself*/
+  thread_block();
+  intr_set_level(old_level);
+}
+
+/*author: @Giridhari Lal Gupta*/
+void
+thread_wakeup(int64_t sys_ticks){
+
+  struct thread *_Thread;
+  
+  while(!list_empty(&timer_wait_list)){
+
+    _Thread = list_entry(list_front(&timer_wait_list), struct thread, timer_elem);
+
+    if(sys_ticks < _Thread->wakeup_time) break;
+
+    list_pop_front(&timer_wait_list);
+    thread_unblock(_Thread);
+  }
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
-thread_tick (void) 
+// thread_tick (void) 
+thread_tick(int64_t sys_ticks) 
 {
-  struct thread *t = thread_current ();
+  struct thread *t = thread_current();
 
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
-#ifdef USERPROG
-  else if (t->pagedir != NULL)
-    user_ticks++;
-#endif
-  else
-    kernel_ticks++;
-
+  #ifdef USERPROG
+    else if (t->pagedir != NULL)
+      user_ticks++;
+  #endif
+    else
+      kernel_ticks++;
+  /* author: @Giridhari Lal Gupta */
+  thread_wakeup(sys_ticks);
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -310,7 +354,7 @@ thread_yield (void)
   if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
-  schedule ();
+  schedule();
   intr_set_level (old_level);
 }
 
@@ -578,7 +622,30 @@ allocate_tid (void)
 
   return tid;
 }
+
+bool
+less_wakeup (const struct list_elem *left,
+ const struct list_elem *right, void *aux UNUSED)
+{
+  const struct thread *tleft = list_entry (left, struct thread, timer_elem);
+  const struct thread *tright = list_entry (right, struct thread, timer_elem);
+
+   return tleft->wakeup_time < tright->wakeup_time;
+}
+
+/* Comparison function that prefers the thread with higher priority. */
+bool
+more_prio (const struct list_elem *left,
+ const struct list_elem *right, void *aux UNUSED)
+{
+  const struct thread *tleft = list_entry (left, struct thread, elem);
+  const struct thread *tright = list_entry (right, struct thread, elem);
+
+  return tleft->wakeup_time > tright->wakeup_time;
+}
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
