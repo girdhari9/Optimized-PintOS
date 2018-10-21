@@ -123,7 +123,7 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
- /*author: @Giridhari Lal Gupta*/
+ /*author: @Giridhari Lal Gupta */
 void
 thread_timer_sleep(int64_t start, int64_t ticks){
 
@@ -136,7 +136,7 @@ thread_timer_sleep(int64_t start, int64_t ticks){
   enum intr_level old_level = intr_disable();
   ASSERT (!intr_context());
     
-  list_insert_ordered(&timer_wait_list, &_Thread->timer_elem, less_wakeup, NULL);
+  list_insert_ordered(&timer_wait_list, &_Thread->timer_elem, WakeUpCompare, NULL);
   /*Thread will block itself*/
   thread_block();
   intr_set_level(old_level);
@@ -162,7 +162,6 @@ thread_wakeup(int64_t sys_ticks){
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
-// thread_tick (void) 
 thread_tick(int64_t sys_ticks) 
 {
   struct thread *t = thread_current();
@@ -245,6 +244,15 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* author: @Giridhari Lal Gupta*/
+  /* Yield if the newly created thread has higher priority than
+      the running thread. */
+  // if (t->priority > thread_current ()->priority)
+  // {
+  //   ASSERT (!intr_context ());
+  //   thread_yield ();
+  // }
+
   return tid;
 }
 
@@ -281,8 +289,17 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, PriorityCompare, NULL); /* author: @Giridhari Lal Gupta */
   t->status = THREAD_READY;
+
+  /* author: Giridhari Lal Gupta */
+  // if (t->priority > thread_current ()->priority && thread_current () != idle_thread)
+  //   if (!intr_context ())
+  //     thread_yield ();
+  //   else
+  //     intr_yield_on_return ();
+
   intr_set_level (old_level);
 }
 
@@ -352,7 +369,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, PriorityCompare, NULL); /* author: @Giridhari Lal Gupta */
   cur->status = THREAD_READY;
   schedule();
   intr_set_level (old_level);
@@ -380,6 +397,13 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+
+  /* author: @Giridhari Lal Gupta */
+  if(!list_empty(&ready_list)){
+    struct thread * _Thread = list_entry (list_front (&ready_list), struct thread, elem);
+    if (_Thread->priority > new_priority)
+      thread_yield ();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -623,25 +647,28 @@ allocate_tid (void)
   return tid;
 }
 
+/* author: @Giridhari Lal Gupta*/
 bool
-less_wakeup (const struct list_elem *left,
+WakeUpCompare (const struct list_elem *left,
  const struct list_elem *right, void *aux UNUSED)
 {
   const struct thread *tleft = list_entry (left, struct thread, timer_elem);
   const struct thread *tright = list_entry (right, struct thread, timer_elem);
 
-   return tleft->wakeup_time < tright->wakeup_time;
+  if (tleft->wakeup_time != tright->wakeup_time)
+    return tleft->wakeup_time < tright->wakeup_time;
+  else
+    return tleft->priority > tright->priority;
 }
 
-/* Comparison function that prefers the thread with higher priority. */
 bool
-more_prio (const struct list_elem *left,
+PriorityCompare (const struct list_elem *left,
  const struct list_elem *right, void *aux UNUSED)
 {
   const struct thread *tleft = list_entry (left, struct thread, elem);
   const struct thread *tright = list_entry (right, struct thread, elem);
 
-  return tleft->wakeup_time > tright->wakeup_time;
+  return tleft->priority > tright->priority;
 }
 
 

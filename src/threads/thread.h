@@ -150,11 +150,11 @@ int thread_get_load_avg (void);
 void thread_timer_sleep(int64_t , int64_t );
 void thread_wakeup(int64_t);
 
-bool less_wakeup (const struct list_elem *left,
+bool WakeUpCompare (const struct list_elem *left,
  const struct list_elem *right, void *aux UNUSED);
 
 /* Comparison function that prefers the threas with higher priority. */
-bool more_prio (const struct list_elem *left,
+bool PriorityCompare (const struct list_elem *left,
  const struct list_elem *right, void *aux UNUSED);
 
 #endif /* threads/thread.h */
