@@ -140,6 +140,8 @@ thread_timer_sleep(int64_t start, int64_t ticks){
   /*Thread will block itself*/
   thread_block();
   intr_set_level(old_level);
+
+  // sema_down (&_Thread->sema_timer);
 }
 
 /*author: @Giridhari Lal Gupta*/
@@ -154,6 +156,7 @@ thread_wakeup(int64_t sys_ticks){
 
     if(sys_ticks < _Thread->wakeup_time) break;
 
+    // sema_up (&_Thread->sema_timer);
     list_pop_front(&timer_wait_list);
     thread_unblock(_Thread);
   }
@@ -245,7 +248,7 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   /* author: @Giridhari Lal Gupta*/
- 
+  /* Helping to run priority-change */
   if (t->priority > thread_current ()->priority)
   {
     ASSERT (!intr_context ());
@@ -292,11 +295,12 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
 
   /* author: Giridhari Lal Gupta */
-  if (t->priority > thread_current ()->priority && thread_current () != idle_thread)
-    if (!intr_context ())
-      thread_yield ();
-    else
-      intr_yield_on_return ();
+  // if (t->priority > thread_current ()->priority && thread_current () != idle_thread){
+  //   if (!intr_context ())
+  //     thread_yield ();
+  //   else
+  //     intr_yield_on_return ();
+  // }
 
   intr_set_level (old_level);
 }
@@ -529,6 +533,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  sema_init (&t->sema_timer, 0);  /* Initialize timer_sema with false.
+                                     Used as a binary semaphore. */
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
