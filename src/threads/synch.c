@@ -66,13 +66,19 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  while (sema->value == 0) 
-    {
+
+  /* 
+    Checking any other thead is already running or not.
+    if sema->value is zero means another thread down the sema value 
+  */
+  if(sema->value == 0){
+
       /* author: @Giridhari Lal Gupta */
-      /* Sorted wait list */
+      /* Inserting thread in Sema wait list in Sorted ordered */
       list_insert_ordered(&sema->waiters, &thread_current ()->elem, PriorityCompare, NULL);
       thread_block ();
     }
+  /* if sema value is 1 then down sema value */
   sema->value--;
   intr_set_level (old_level);
 }
@@ -115,6 +121,7 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
+
   if (!list_empty (&sema->waiters)){
 
     struct thread * _Thread = list_entry (list_pop_front (&sema->waiters),struct thread, elem);
@@ -123,7 +130,8 @@ sema_up (struct semaphore *sema)
 
   sema->value++;
   intr_set_level (old_level);
-  /* author: Giridhari Lal Gupta */
+
+  /* @author: Giridhari Lal Gupta */
   thread_yield ();
 }
 
@@ -260,6 +268,8 @@ struct semaphore_elem
     struct semaphore semaphore;         /* This semaphore. */
   };
 
+  /* @author: Giridhari Lal Gupta */
+  /* Comaprator function to sort condtion watier list */
 bool
 compareSemaElements(const struct list_elem *one, const struct list_elem *two, void *aux UNUSED){
   struct semaphore_elem *s1 = list_entry(one, struct semaphore_elem, elem);
@@ -316,7 +326,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_insert_ordered(&cond->waiters, &waiter.elem, compareSemaElements, NULL); /* author: @Giridhari Lal Gupta */
+
+  /* @author: @Giridhari Lal Gupta */
+  list_insert_ordered(&cond->waiters, &waiter.elem, compareSemaElements, NULL); 
+
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -339,7 +352,8 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
 
   if(!list_empty (&cond->waiters)){
 
-    /* author: @Giridhari Lal Gupta */
+    /* @author: @Giridhari Lal Gupta */
+    /* Sorting Condition Waiter list before calling sema_up() to unblock thread */
     list_sort(&cond->waiters, compareSemaElements, NULL);
 
     sema_up (&list_entry (list_pop_front (&cond->waiters),

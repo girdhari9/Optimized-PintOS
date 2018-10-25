@@ -123,41 +123,48 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
- /*author: @Giridhari Lal Gupta */
+ /* author: @Giridhari Lal Gupta */
 void
 thread_timer_sleep(int64_t start, int64_t ticks){
-
+  /* Create a thread object and Pointed to Current thread */
   struct thread *_Thread = thread_current ();
 
+  /* Checking ticks value (sleep time of threads) */
   if(ticks <= 0) return; 
 
+  /* Updating Wake Up time of thread */
   _Thread->wakeup_time = start + ticks;
 
   enum intr_level old_level = intr_disable();
   ASSERT (!intr_context());
-    
+  
+  /* Inserting thread in sorted order according to wakeup time followed by Priority */
   list_insert_ordered(&timer_wait_list, &_Thread->timer_elem, WakeUpCompare, NULL);
-  /*Thread will block itself*/
+
+  /* Thread will block itself */
   thread_block();
   intr_set_level(old_level);
-
-  // sema_down (&_Thread->sema_timer);
 }
 
-/*author: @Giridhari Lal Gupta*/
+/* author: @Giridhari Lal Gupta */
 void
 thread_wakeup(int64_t sys_ticks){
 
   struct thread *_Thread;
-  
+
+  /* Checking list is empty or not */
   while(!list_empty(&timer_wait_list)){
 
+    /* Pointing _Thread to first thread of Wait List */
     _Thread = list_entry(list_front(&timer_wait_list), struct thread, timer_elem);
 
+    /* if System ticks is less than then can't wake up thread so break the loop */
     if(sys_ticks < _Thread->wakeup_time) break;
 
-    // sema_up (&_Thread->sema_timer);
+    /* if thread is ready to wake up then Pop first thread of wait list */
     list_pop_front(&timer_wait_list);
+
+    /* Thread will unblock itself */
     thread_unblock(_Thread);
   }
 }
@@ -178,8 +185,12 @@ thread_tick(int64_t sys_ticks)
   #endif
     else
       kernel_ticks++;
-  /* author: @Giridhari Lal Gupta */
+
+  /* @author: Giridhari Lal Gupta */
+  /* Waking up a thread on each tick, Passing System ticks to 
+     thread_wakeup() */
   thread_wakeup(sys_ticks);
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -244,13 +255,12 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  /* Add to run queue. */
+  /* @author: Giridhari Lal Gupta */
+  /* Add to ready queue. */
   thread_unblock (t);
 
-  /* author: @Giridhari Lal Gupta*/
   /* Helping to run priority-change */
-  if (t->priority > thread_current ()->priority)
-  {
+  if (t->priority > thread_current ()->priority){
     ASSERT (!intr_context ());
     thread_yield ();
   }
@@ -291,7 +301,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered (&ready_list, &t->elem, PriorityCompare, NULL); /* author: @Giridhari Lal Gupta */
+
+  /* author: @Giridhari Lal Gupta */
+  list_insert_ordered (&ready_list, &t->elem, PriorityCompare, NULL); 
   t->status = THREAD_READY;
 
   /* author: Giridhari Lal Gupta */
@@ -400,7 +412,7 @@ thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
 
-  /* author: @Giridhari Lal Gupta */
+  /* @author: Giridhari Lal Gupta */
   if(!list_empty(&ready_list)){
     struct thread * _Thread = list_entry (list_front (&ready_list), struct thread, elem);
     if (_Thread->priority > new_priority)

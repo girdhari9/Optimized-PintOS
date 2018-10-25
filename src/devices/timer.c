@@ -95,7 +95,14 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  thread_timer_sleep(start, ticks); /* author: @Giridhari*/
+
+  /* author: @Giridhari Lal Gupta */
+  /* 
+      Create this function in thread.c and pass start & ticks value.
+      start is Global time of CPU execution
+      ticks is sleep time of a thread 
+  */
+  thread_timer_sleep(start, ticks); 
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -173,6 +180,8 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  /* author: @Giridhari Lal Gupta */
+  /* Pass System ticks in thread_tick() */
   thread_tick(ticks);
 }
 
